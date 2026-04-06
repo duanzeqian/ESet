@@ -23,7 +23,7 @@ private:
 
     Node* NIL;
     Node* rt;
-    Node* header; // header->left = minimum, header->right = maximum, header->father = rt
+    Node* header; // header->left = minimum, header->right = maximum
     size_t siz; // size of the subtree
     Compare cmp;
 
@@ -283,7 +283,7 @@ public:
         /**
 		 * ++iter
 		 */
-		iterator &operator++()
+        iterator &operator++()
         {
             if (iter == eset->header) return *this; // ++end()
 
@@ -310,7 +310,7 @@ public:
         /**
 		 * iter++
 		 */
-		iterator operator++(int)
+        iterator operator++(int)
         {
             iterator tmp = *this;
             ++(*this);
@@ -319,7 +319,7 @@ public:
         /**
 		 * --iter
 		 */
-		iterator &operator--()
+        iterator &operator--()
         {
             if (iter == header) // --end()
             {
@@ -357,7 +357,7 @@ public:
         /**
 		 * iter--
 		 */
-		iterator operator--(int)
+        iterator operator--(int)
         {
             iterator tmp = *this;
             --(*this);
@@ -467,7 +467,7 @@ public:
     {
         Node* n = findNode(key);
         if (n == NIL) return end();
-        else return iterator(n);
+        else return iterator(n, header, this);
     }
 
     iterator lower_bound(const Key& key) const
@@ -516,9 +516,10 @@ public:
     std::pair<iterator, bool> emplace( Args&&... args )
     {
         Key key(std::forward<Args>(args)...);
-        if (findNode(key) != NIL) // already have
+        Node* existing = findNode(key);
+        if (existing != NIL) // already have
         {
-            return std::make_pair(iterator(findNode(key), header, this), false);
+            return std::make_pair(iterator(existing, header, this), false);
         }
 
         Node* n = new Node(key, RED);
@@ -532,6 +533,7 @@ public:
             else x = x->right;
         }
         n->father = p;
+        n->left = n->right = NIL;
 
         if (p == NIL) rt = n;
         else if (cmp(n->key, p->key)) p->left = n;
@@ -570,6 +572,7 @@ public:
         {
             y = n->right;
             while (y->left != NIL) y = y->left; // let the element just bigger than n be the new root
+            deleteColor = y->color;
 
             x = y->right;
             if (y->father == n) x->father = y; // no necessity to delete y, cause it is exactly the right subtree of n
