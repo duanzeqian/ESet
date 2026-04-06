@@ -1,6 +1,7 @@
 #include <utility>
 #include <stdexcept>
 #include <cstddef>
+#include <optional>
 
 template<class Key, class Compare = std::less<Key>>
 class ESet
@@ -10,7 +11,7 @@ private:
 
     struct Node
     {
-        Key key;
+        std::optional<Key> key;
         Color color;
         Node* left;
         Node* right;
@@ -224,7 +225,7 @@ private:
     Node* copyTree(Node* oldNode, Node* father, Node* nil, Node*& newNil) // copy a subtree by recursion
     {
         if (oldNode == nil) return newNil;
-        Node* newNode = new Node(oldNode->key, oldNode->color);
+        Node* newNode = new Node(oldNode->key.value(), oldNode->color);
         newNode->father = father;
         newNode->siz = oldNode->siz;
         newNode->left = copyTree(oldNode->left, newNode, nil, newNil);
@@ -245,8 +246,8 @@ private:
         Node* cur = rt;
         while (cur != NIL) // divide and conquer
         {
-            if (cmp(key, cur->key)) cur = cur->left;
-            else if (cmp(cur->key, key)) cur = cur->right;
+            if (cmp(key, cur->key.value())) cur = cur->left;
+            else if (cmp(cur->key.value(), key)) cur = cur->right;
             else return cur;
         }
         return NIL;
@@ -255,8 +256,8 @@ private:
     size_t countRange(Node* n, const Key& l, const Key& r) const
     {
         if (n == NIL) return 0;
-        if (cmp(n->key, l)) return countRange(n->right, l, r);
-        else if (cmp(r, n->key)) return countRange(n->left, l, r);
+        if (cmp(n->key.value(), l)) return countRange(n->right, l, r);
+        else if (cmp(r, n->key.value())) return countRange(n->left, l, r);
         else return 1 + countRange(n->left, l, r) + countRange(n->right, l, r);
     }
 
@@ -367,12 +368,12 @@ public:
         const Key& operator*() const
         {
             if (iter == nullptr || iter == header) throw("invalid"); // nothing or end()
-            return iter->key;
+            return iter->key.value();
         }
 
         const Key* operator->() const noexcept
         {
-            return &(iter->key);
+            return &(iter->key.value());
         }
 
         bool operator==(const iterator& other) const
@@ -476,7 +477,7 @@ public:
         Node* ans = header;
         while (cur != NIL)
         {
-            if (!cmp(cur->key, key))
+            if (!cmp(cur->key.value(), key))
             {
                 ans = cur;
                 cur = cur->left;
@@ -492,7 +493,7 @@ public:
         Node* ans = header;
         while (cur != NIL)
         {
-            if (cmp(key, cur->key))
+            if (cmp(key, cur->key.value()))
             {
                 ans = cur;
                 cur = cur->left;
@@ -529,22 +530,22 @@ public:
         {
             p = x;
             x->siz++;
-            if (cmp(n->key, x->key)) x = x->left; // no key in ESet, so just 2 cases
+            if (cmp(n->key.value(), x->key.value())) x = x->left; // no key in ESet, so just 2 cases
             else x = x->right;
         }
         n->father = p;
         n->left = n->right = NIL;
 
         if (p == NIL) rt = n;
-        else if (cmp(n->key, p->key)) p->left = n;
+        else if (cmp(n->key.value(), p->key.value())) p->left = n;
         else p->right = n;
         
         insertFix(n);
         siz++;
 
         // update minimum and maximum
-        if (header->left == header || cmp(n->key, header->left->key)) header->left = n;
-        if (header->right == header || cmp(header->right->key, n->key)) header->right = n;
+        if (header->left == header || cmp(n->key.value(), header->left->key.value())) header->left = n;
+        if (header->right == header || cmp(header->right->key.value(), n->key.value())) header->right = n;
 
         return std::make_pair(iterator(n, header, this), true);
     }
