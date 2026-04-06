@@ -139,10 +139,10 @@ private:
 
     void transplant(Node* u, Node* v) // substitute u with v
     {
-        if (u->parent == NIL) rt = v;
-        else if (u == u->parent->left) u->parent->left = v;
-        else u->parent->right = v;
-        v->parent = u->parent;
+        if (u->father == NIL) rt = v;
+        else if (u == u->father->left) u->father->left = v;
+        else u->father->right = v;
+        v->father = u->father;
     }
 
     void deleteFix(Node* n) // delete a node and fix the balance
@@ -275,10 +275,10 @@ public:
     private:
         Node* iter;
         Node* header;
-        ESet* eset;
+        const ESet* eset;
 
     public:
-        iterator(Node* it = nullptr, Node* h = nullptr, ESet* es = nullptr) : iter(it), header(h), eset(es) {}
+        iterator(Node* it = nullptr, Node* h = nullptr, const ESet* es = nullptr) : iter(it), header(h), eset(es) {}
 
         /**
 		 * ++iter
@@ -404,9 +404,9 @@ public:
     ESet(const ESet& other) : NIL(new Node()), rt(NIL), header(new Node()), siz(other.siz), cmp(other.cmp)
     {
         *NIL = *(other.NIL);
-        NIL->left = NIL->right = NIL->parent = NIL;
+        NIL->left = NIL->right = NIL->father = NIL;
         header->left = header->right = header;
-        if (other._root != other.NIL)
+        if (other.rt != other.NIL)
         {
             rt = copyTree(other.rt, NIL, other.NIL, NIL);
             updateMinMax();
@@ -463,6 +463,13 @@ public:
         return siz;
     }
 
+    iterator find(const Key& key) const
+    {
+        Node* n = findNode(key);
+        if (n == NIL) return end();
+        else return iterator(n);
+    }
+
     iterator lower_bound(const Key& key) const
     {
         Node* cur = rt;
@@ -503,5 +510,94 @@ public:
     iterator end() const noexcept
     {
         return iterator(header, header, this);
+    }
+
+    template< class... Args >
+    std::pair<iterator, bool> emplace( Args&&... args )
+    {
+        Key key(std::forward<Args>(args)...);
+        if (findNode(key) != NIL) // already have
+        {
+            return std::make_pair(iterator(findNode(key), header, this), false);
+        }
+
+        Node* n = new Node(key, RED);
+        Node* p = NIL;
+        Node* x = rt;
+        while (x != NIL)
+        {
+            p = x;
+            x->siz++;
+            if (cmp(n->key, x->key)) x = x->left; // no key in ESet, so just 2 cases
+            else x = x->right;
+        }
+        n->father = p;
+
+        if (p == NIL) rt = n;
+        else if (cmp(n->key, p->key)) p->left = n;
+        else p->right = n;
+        
+        insertFix(n);
+        siz++;
+
+        // update minimum and maximum
+        if (header->left == header || cmp(n->key, header->left->key)) header->left = n;
+        if (header->right == header || cmp(header->right->key, n->key)) header->right = n;
+
+        return std::make_pair(iterator(n, header, this), true);
+    }
+
+    size_t erase( const Key& key )
+    {
+        Node* n = findNode(key);
+        if (n == NIL) return 0;
+
+        Node* y = n;
+        Node* x;
+        Color deleteColor = y->color;
+
+        if (n->left == NIL) // only right subtree left
+        {
+            x = n->right;
+            transplant(n, n->right);
+        }
+        else if (n->right == NIL) // only left subtree left
+        {
+            x = n->left;
+            transplant(n, n->left);
+        }
+        else
+        {
+            y = n->right;
+            while (y->left != NIL) y = y->left; // let the element just bigger than n be the new root
+
+            x = y->right;
+            if (y->father == n) x->father = y; // no necessity to delete y, cause it is exactly the right subtree of n
+            else
+            {
+                transplant(y, y->right); // delete y in the original place
+                y->right = n->right; // y become the right subtree of n
+                y->right->father = y;
+            }
+            transplant(n, y); // delete n and substitute it with y
+            y->left = n->left;
+            y->left->father = y;
+            y->color = n->color;
+            y->siz = n->siz;
+        }
+
+        Node* node = x->father; // the size may be changed starting from the original y->right
+        while (node != NIL)
+        {
+            node->siz = (node->left != NIL ? node->left->siz : 0) + (node->right != NIL ? node->right->siz : 0) + 1;
+            node = node->father;
+        }
+
+        if (deleteColor == BLACK) deleteFix(x); // may be unbalanced
+        delete n;
+        siz--;
+
+        updateMinMax();
+        return 1;
     }
 };
